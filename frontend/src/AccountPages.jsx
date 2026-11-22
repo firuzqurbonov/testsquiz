@@ -95,28 +95,56 @@ const resources = {
     { name: 'title', label: 'Ном', required: true }, { name: 'description', label: 'Тавсиф', kind: 'text' },
   ] },
   modules: { label: 'Модулҳо', icon: Layers3, fields: [
-    { name: 'title', label: 'Ном', required: true }, { name: 'course', label: 'ID-и курс', kind: 'number', required: true },
+    { name: 'title', label: 'Ном', required: true }, { name: 'course', label: 'Курс', related: 'courses', required: true },
   ] },
   tasks: { label: 'Масъалаҳо', icon: CodeXml, fields: [
-    { name: 'title', label: 'Ном', required: true }, { name: 'module', label: 'ID-и модул', kind: 'number', required: true }, { name: 'description', label: 'Шарти масъала', kind: 'text', required: true },
+    { name: 'title', label: 'Ном', required: true }, { name: 'module', label: 'Модул', related: 'modules', required: true }, { name: 'description', label: 'Шарти масъала', kind: 'text', required: true },
   ] },
   'test-cases': { label: 'Санҷишҳо', icon: ClipboardList, fields: [
-    { name: 'task', label: 'ID-и масъала', kind: 'number', required: true }, { name: 'input_data', label: 'Воридот', kind: 'text' },
+    { name: 'task', label: 'Масъала', related: 'tasks', required: true }, { name: 'input_data', label: 'Воридот', kind: 'text' },
     { name: 'expected_output', label: 'Барориши интизорӣ', kind: 'text' },
   ] },
 };
+
+async function loadRelatedChoices(path, options) {
+  const pages = [];
+  for (let pageNumber = 1; ; pageNumber += 1) {
+    const page = await api(path + '?page=' + pageNumber, options);
+    pages.push(page.results ?? page);
+    if (!page.next) break;
+  }
+
+  const records = pages.flat().sort((left, right) => left.title.localeCompare(right.title, 'tg') || left.id - right.id);
+  const titleCounts = new Map();
+  for (const { title } of records) {
+    titleCounts.set(title, (titleCounts.get(title) ?? 0) + 1);
+  }
+  return records.map(({ id, title }) => ({ id, label: titleCounts.get(title) > 1 ? `${title} · №${id}` : title }));
+}
 
 function ResourceForm({ resource, row, onClose, onSaved }) {
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
   const { fields, label } = resources[resource];
+  const relatedField = fields.find(({ related }) => related);
+  const relatedPath = relatedField ? '/api/' + relatedField.related + '/' : null;
+  const request = useRequest(relatedPath, Boolean(relatedField), 0, loadRelatedChoices);
+  const [relatedId, setRelatedId] = useState(String(row?.[relatedField?.name] ?? ''));
+  const choices = request.data ?? [];
+  const selectedId = choices.some(({ id }) => String(id) === relatedId) ? relatedId : '';
+
+  let placeholder = 'Интихоб кунед';
+  if (request.busy) placeholder = 'Бор шуда истодааст…';
+  else if (request.error) placeholder = 'Маълумот дастрас нест';
+  else if (!choices.length) placeholder = 'Ҳоло сабте нест';
 
   async function save(event) {
     event.preventDefault();
+    if (relatedField && !selectedId) return;
     setPending(true);
     setError('');
     const values = new FormData(event.currentTarget);
-    const body = Object.fromEntries(fields.map(({ name, kind }) => [name, kind === 'number' ? Number(values.get(name)) : values.get(name)]));
+    const body = Object.fromEntries(fields.map(({ name, related }) => [name, related ? Number(selectedId) : values.get(name)]));
     try {
       await api('/api/' + resource + '/' + (row ? row.id + '/' : ''), { method: row ? 'PATCH' : 'POST', body });
       onSaved();
@@ -130,12 +158,20 @@ function ResourceForm({ resource, row, onClose, onSaved }) {
   return <Dialog label={label} onClose={onClose}>
     <h2>{row ? 'Тағйир додан' : 'Илова кардан'}</h2><p>{label}{row ? ' · №' + row.id : ''}</p>
     <form onSubmit={save}>
-      {fields.map(({ name, label: fieldLabel, required, kind }) => <label className="form-label" key={name}>{fieldLabel}
-        {kind === 'text' ? <textarea name={name} rows={3} required={required} defaultValue={row?.[name] ?? ''} /> :
-          <input name={name} type={kind === 'number' ? 'number' : 'text'} min={kind === 'number' ? 1 : undefined} required={required} defaultValue={row?.[name] ?? ''} />}
+      {fields.map(({ name, label: fieldLabel, required, kind, related }) => <label className="form-label" key={name}>{fieldLabel}
+        {related ? <select name={name} required={required} disabled={!choices.length || pending} value={selectedId}
+          onChange={(event) => setRelatedId(event.target.value)}>
+          <option value="" disabled>{placeholder}</option>
+          {choices.map(({ id, label: choiceLabel }) => <option key={id} value={id}>{choiceLabel}</option>)}
+        </select> : kind === 'text' ? <textarea name={name} rows={3} required={required} defaultValue={row?.[name] ?? ''} /> :
+          <input name={name} required={required} defaultValue={row?.[name] ?? ''} />}
       </label>)}
+      {request.error && <div className="form-actions">
+        <p className="form-error" role="alert">{request.error.message}</p>
+        <button type="button" className="button button-light" onClick={request.reload}>Дубора кӯшиш кардан</button>
+      </div>}
       {error && <p className="form-error" role="alert">{error}</p>}
-      <button className="button button-primary full-button" disabled={pending}><Save size={17} /> {pending ? 'Сабт шуда истодааст…' : 'Сабт кардан'}</button>
+      <button className="button button-primary full-button" disabled={pending || Boolean(relatedField && !selectedId)}><Save size={17} /> {pending ? 'Сабт шуда истодааст…' : 'Сабт кардан'}</button>
     </form>
   </Dialog>;
 }

@@ -3,7 +3,7 @@ import { AlertCircle, BookOpen, Check, CodeXml, LibraryBig, ListChecks, LoaderCi
 import { api, signIn } from './api';
 import { guide, verdicts } from './content';
 
-export function useRequest(path, enabled = true, revision = 0) {
+export function useRequest(path, enabled = true, revision = 0, load = api) {
   const [retry, setRetry] = useState(0);
   const [state, setState] = useState({});
   const key = enabled && path ? [path, revision, retry].join('|') : null;
@@ -11,7 +11,7 @@ export function useRequest(path, enabled = true, revision = 0) {
   useEffect(() => {
     if (!key) return;
     const controller = new AbortController();
-    api(path, { signal: controller.signal })
+    load(path, { signal: controller.signal })
       .then((data) => {
         if (!controller.signal.aborted) setState({ key, path, data });
       })
@@ -19,7 +19,7 @@ export function useRequest(path, enabled = true, revision = 0) {
         if (!controller.signal.aborted) setState({ key, path, error });
       });
     return () => controller.abort();
-  }, [key, path]);
+  }, [key, path, load]);
 
   const priorData = key && state.path === path ? state.data : undefined;
   return {

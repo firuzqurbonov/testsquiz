@@ -183,8 +183,10 @@ svg { flex-shrink: 0; vertical-align: middle; }
 .attempt-content pre { overflow: auto; margin: 0 0 12px; border-radius: 9px; padding: 12px; background: #221b31; color: #efe5fa; font-size: .86rem; line-height: 1.48; }
 .profile-form { max-width: 670px; }
 .form-label { display: grid; gap: 5px; color: #51415e; font-weight: 780; font-size: .9rem; margin-bottom: 12px; }
-.form-label input, .form-label textarea { padding: 10px 12px; width: 100%; border: 1px solid #ded4e8; border-radius: 9px; background: #fff; color: #2a2137; font-weight: 580; resize: vertical; outline: none; }
-.form-label input:focus, .form-label textarea:focus { border-color: #9971cf; box-shadow: 0 0 0 3px #dfccf450; }
+.form-label input, .form-label textarea, .form-label select { padding: 10px 12px; width: 100%; border: 1px solid #ded4e8; border-radius: 9px; background: #fff; color: #2a2137; font-weight: 580; outline: none; }
+.form-label input:focus, .form-label textarea:focus, .form-label select:focus { border-color: #9971cf; box-shadow: 0 0 0 3px #dfccf450; }
+.form-label textarea { resize: vertical; }
+.form-label select { min-width: 0; }
 .form-label input[readonly] { color: #685974; background: #f7f4fa; }
 .form-error { color: #a11843 !important; font-size: .9rem; font-weight: 710; line-height: 1.5; margin-bottom: 10px; }
 .form-actions { display: flex; align-items: center; gap: 9px; margin-top: 12px; flex-wrap: wrap; }
